@@ -29,14 +29,18 @@ module Delayed
 
     def start_job(job)
       return if new_record?
-      update_attributes! :job_id => job.id, :job_started_at => Delayed::Job.db_time_now
+      self.job_id         = job.id
+      self.job_started_at = Delayed::Job.db_time_now
+      save!
     end
 
     def end_job(job)
       return if new_record?
       duration    = job_started_at ? Delayed::Job.db_time_now - job_started_at : 0
-      longest_job = duration if duration > self.longest_job
-      update_attributes! :job_id => nil, :completed_jobs => completed_jobs + 1, :longest_job => longest_job
+      self.longest_job     = duration if duration > self.longest_job
+      self.job_id          = nil
+      self.completed_jobs += 1
+      save!
     end
 
     def start
