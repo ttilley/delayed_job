@@ -21,8 +21,12 @@ module Delayed
     # Every worker has a unique name which by default is the pid of the process.
     # There are some advantages to overriding this with something which survives worker retarts:
     # Workers can safely resume working on tasks which are locked by themselves. The worker will assume that it crashed before.
-    cattr_accessor :worker_name, :worker, :instance_writer => false
-    self.worker_name = "host:#{Socket.gethostname} pid:#{Process.pid}" rescue "pid:#{Process.pid}"
+    class << self
+      attr_writer :worker
+      def worker
+        @worker ||= Worker.new
+      end
+    end
 
     NextTaskSQL         = '(run_at <= ? AND (locked_at IS NULL OR locked_at < ?) OR (locked_by = ?)) AND failed_at IS NULL'
     NextTaskOrder       = 'priority DESC, run_at ASC'
@@ -35,7 +39,7 @@ module Delayed
 
     # When a worker is exiting, make sure we don't have any locked jobs.
     def self.clear_locks!
-      update_all("locked_by = null, locked_at = null", ["locked_by = ?", worker_name])
+      update_all("locked_by = null, locked_at = null", ["locked_by = ?", worker.name])
     end
 
     def failed?
@@ -125,7 +129,7 @@ module Delayed
 
       sql = NextTaskSQL.dup
 
-      conditions = [time_now, time_now - max_run_time, worker_name]
+      conditions = [time_now, time_now - max_run_time, worker.name]
 
       if self.min_priority
         sql << ' AND (priority >= ?)'
@@ -151,7 +155,7 @@ module Delayed
       # We get up to 5 jobs from the db. In case we cannot get exclusive access to a job we try the next.
       # this leads to a more even distribution of jobs across the worker processes
       find_available(5, max_run_time).each do |job|
-        t = job.run_with_lock(max_run_time, worker_name)
+        t = job.run_with_lock(max_run_time, worker.name)
         return t unless t == nil  # return if we did work (good or bad)
       end
 
@@ -160,7 +164,7 @@ module Delayed
 
     # Lock this job for this worker.
     # Returns true if we have the lock, false otherwise.
-    def lock_exclusively!(max_run_time, worker = worker_name)
+    def lock_exclusively!(max_run_time, worker = worker.name)
       now = self.class.db_time_now
       affected_rows = if locked_by != worker
         # We don't own this job so we will update the locked_by name and the locked_at

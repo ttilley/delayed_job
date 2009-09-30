@@ -1,5 +1,6 @@
 module Delayed
   class Worker < ActiveRecord::Base
+    set_table_name :delayed_workers
     SLEEP = 5
 
     cattr_accessor :logger
@@ -9,22 +10,26 @@ module Delayed
       RAILS_DEFAULT_LOGGER
     end
 
+    def self.default_name
+      "host:#{Socket.gethostname} pid:#{Process.pid}" rescue "pid:#{Process.pid}"
+    end
+
     def self.start(options = {})
-      job = new(options)
-      job.name = Delayed::Job.worker_name
-      job.save!
-      Delayed::Job.worker = job
-      job.start
+      Delayed::Job.worker = new(options)
+      Delayed::Job.worker.save!
+      Delayed::Job.worker.start
     end
 
     def initialize(options={})
-      @quiet = options[:quiet]
-      Delayed::Job.min_priority = options[:min_priority] if options.has_key?(:min_priority)
-      Delayed::Job.max_priority = options[:max_priority] if options.has_key?(:max_priority)
+      @quiet = options.delete(:quiet)
+      Delayed::Job.min_priority = options.delete(:min_priority) if options.has_key?(:min_priority)
+      Delayed::Job.max_priority = options.delete(:max_priority) if options.has_key?(:max_priority)
+      options[:name] = self.class.default_name if !options[:name]
+      super
     end
 
     def start
-      say "*** Starting job worker #{Delayed::Job.worker_name}"
+      say "*** Starting job worker #{name}"
 
       trap('TERM') { say 'Exiting...'; $exit = true }
       trap('INT')  { say 'Exiting...'; $exit = true }

@@ -190,7 +190,7 @@ describe Delayed::Job do
   context "when another worker is already performing an task, it" do
 
     before :each do
-      Delayed::Job.worker_name = 'worker1'
+      Delayed::Job.worker = Delayed::Worker.new(:name => 'worker1')
       @job = Delayed::Job.create :payload_object => SimpleJob.new, :locked_by => 'worker1', :locked_at => Delayed::Job.db_time_now - 5.minutes
     end
 
@@ -213,13 +213,13 @@ describe Delayed::Job do
     end
 
     it "should not be found by another worker" do
-      Delayed::Job.worker_name = 'worker2'
+      Delayed::Job.worker = Delayed::Worker.new(:name => 'worker2')
 
       Delayed::Job.find_available(1, 6.minutes).length.should == 0
     end
 
     it "should be found by another worker if the time has expired" do
-      Delayed::Job.worker_name = 'worker2'
+      Delayed::Job.worker = Delayed::Worker.new(:name => 'worker2')
 
       Delayed::Job.find_available(1, 4.minutes).length.should == 1
     end
@@ -234,7 +234,7 @@ describe Delayed::Job do
   context "when another worker has worked on a task since the job was found to be available, it" do
 
     before :each do
-      Delayed::Job.worker_name = 'worker1'
+      Delayed::Job.worker = Delayed::Worker.new(:name => 'worker1')
       @job = Delayed::Job.create :payload_object => SimpleJob.new
       @job_copy_for_worker_2 = Delayed::Job.find(@job.id)
     end
@@ -337,7 +337,7 @@ describe Delayed::Job do
   
   context "while running alongside other workers that locked jobs, it" do
     before(:each) do
-      Delayed::Job.worker_name = 'worker1'
+      Delayed::Job.worker = Delayed::Worker.new(:name => 'worker1')
       Delayed::Job.create(:payload_object => SimpleJob.new, :locked_by => 'worker1', :locked_at => (Delayed::Job.db_time_now - 1.minutes))
       Delayed::Job.create(:payload_object => SimpleJob.new, :locked_by => 'worker2', :locked_at => (Delayed::Job.db_time_now - 1.minutes))
       Delayed::Job.create(:payload_object => SimpleJob.new)
@@ -345,14 +345,14 @@ describe Delayed::Job do
     end
 
     it "should ingore locked jobs from other workers" do
-      Delayed::Job.worker_name = 'worker3'
+      Delayed::Job.worker = Delayed::Worker.new(:name => 'worker3')
       SimpleJob.runs.should == 0
       Delayed::Job.work_off
       SimpleJob.runs.should == 1 # runs the one open job
     end
 
     it "should find our own jobs regardless of locks" do
-      Delayed::Job.worker_name = 'worker1'
+      Delayed::Job.worker = Delayed::Worker.new(:name => 'worker1')
       SimpleJob.runs.should == 0
       Delayed::Job.work_off
       SimpleJob.runs.should == 3 # runs open job plus worker1 jobs that were already locked
@@ -361,7 +361,7 @@ describe Delayed::Job do
 
   context "while running with locked and expired jobs, it" do
     before(:each) do
-      Delayed::Job.worker_name = 'worker1'
+      Delayed::Job.worker = Delayed::Worker.new(:name => 'worker1')
       exp_time = Delayed::Job.db_time_now - (1.minutes + Delayed::Job::MAX_RUN_TIME)
       Delayed::Job.create(:payload_object => SimpleJob.new, :locked_by => 'worker1', :locked_at => exp_time)
       Delayed::Job.create(:payload_object => SimpleJob.new, :locked_by => 'worker2', :locked_at => (Delayed::Job.db_time_now - 1.minutes))
@@ -370,14 +370,14 @@ describe Delayed::Job do
     end
 
     it "should only find unlocked and expired jobs" do
-      Delayed::Job.worker_name = 'worker3'
+      Delayed::Job.worker = Delayed::Worker.new(:name => 'worker3')
       SimpleJob.runs.should == 0
       Delayed::Job.work_off
       SimpleJob.runs.should == 2 # runs the one open job and one expired job
     end
 
     it "should ignore locks when finding our own jobs" do
-      Delayed::Job.worker_name = 'worker1'
+      Delayed::Job.worker = Delayed::Worker.new(:name => 'worker1')
       SimpleJob.runs.should == 0
       Delayed::Job.work_off
       SimpleJob.runs.should == 3 # runs open job plus worker1 jobs
