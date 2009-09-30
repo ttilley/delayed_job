@@ -9,6 +9,14 @@ module Delayed
       RAILS_DEFAULT_LOGGER
     end
 
+    def self.start(options = {})
+      job = new(options)
+      job.name = Delayed::Job.worker_name
+      job.save!
+      Delayed::Job.worker = job
+      job.start
+    end
+
     def initialize(options={})
       @quiet = options[:quiet]
       Delayed::Job.min_priority = options[:min_priority] if options.has_key?(:min_priority)

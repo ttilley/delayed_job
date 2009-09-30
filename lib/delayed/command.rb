@@ -64,8 +64,7 @@ module Delayed
       ActiveRecord::Base.connection.reconnect!
       
       Delayed::Job.worker_name = "#{worker_name} #{Delayed::Job.worker_name}"
-      
-      Delayed::Worker.new(@options).start  
+      Delayed::Worker.start(@options)
     rescue => e
       logger.fatal e
       STDERR.puts e.message
