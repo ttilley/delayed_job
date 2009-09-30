@@ -83,15 +83,16 @@ module Delayed
       end
     end
 
-
     # Try to run one job. Returns true/false (work done/work failed) or nil if job can't be locked.
-    def run_with_lock(max_run_time, worker_name)
+    def run_with_lock(max_run_time, worker)
       logger.info "* [JOB] acquiring lock on #{name}"
-      unless lock_exclusively!(max_run_time, worker_name)
+      unless lock_exclusively!(max_run_time, worker.name)
         # We did not get the lock, some other worker process must have
         logger.warn "* [JOB] failed to acquire exclusive lock for #{name}"
         return nil # no work done
       end
+
+      worker.start_job(self)
 
       begin
         runtime =  Benchmark.realtime do
@@ -105,6 +106,8 @@ module Delayed
         reschedule e.message, e.backtrace
         log_exception(e)
         return false  # work failed
+      ensure
+        worker.end_job(self)
       end
     end
 
@@ -115,7 +118,7 @@ module Delayed
       unless object.respond_to?(:perform) || block_given?
         raise ArgumentError, 'Cannot enqueue items which do not respond to perform'
       end
-    
+
       priority = args.first || 0
       run_at   = args[1]
 
@@ -155,7 +158,7 @@ module Delayed
       # We get up to 5 jobs from the db. In case we cannot get exclusive access to a job we try the next.
       # this leads to a more even distribution of jobs across the worker processes
       find_available(5, max_run_time).each do |job|
-        t = job.run_with_lock(max_run_time, worker.name)
+        t = job.run_with_lock(max_run_time, worker)
         return t unless t == nil  # return if we did work (good or bad)
       end
 

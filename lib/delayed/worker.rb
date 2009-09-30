@@ -15,8 +15,7 @@ module Delayed
     end
 
     def self.start(options = {})
-      Delayed::Job.worker = new(options)
-      Delayed::Job.worker.save!
+      Delayed::Job.worker = create!(options)
       Delayed::Job.worker.start
     end
 
@@ -26,6 +25,18 @@ module Delayed
       Delayed::Job.max_priority = options.delete(:max_priority) if options.has_key?(:max_priority)
       options[:name] = self.class.default_name if !options[:name]
       super
+    end
+
+    def start_job(job)
+      return if new_record?
+      update_attributes! :job_id => job.id, :job_started_at => Delayed::Job.db_time_now
+    end
+
+    def end_job(job)
+      return if new_record?
+      duration    = job_started_at ? Delayed::Job.db_time_now - job_started_at : 0
+      longest_job = duration if duration > self.longest_job
+      update_attributes! :job_id => nil, :completed_jobs => completed_jobs + 1, :longest_job => longest_job
     end
 
     def start

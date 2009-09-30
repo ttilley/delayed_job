@@ -17,7 +17,8 @@ class CreateDelayedJobs < ActiveRecord::Migration
       table.integer :job_id
       table.integer :completed_jobs, :default => 0
       table.integer :longest_job, :default => 0
-      table.timestamps
+      table.datetime :created_at
+      table.datetime :job_started_at
     end
   end
   
