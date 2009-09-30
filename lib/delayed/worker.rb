@@ -1,5 +1,5 @@
 module Delayed
-  class Worker
+  class Worker < ActiveRecord::Base
     SLEEP = 5
 
     cattr_accessor :logger
