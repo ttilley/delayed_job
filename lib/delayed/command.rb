@@ -66,7 +66,7 @@ module Delayed
       @options[:name] = "#{worker_name} #{Delayed::Worker.default_name}"
       Delayed::Worker.start(@options)
     rescue => e
-      logger.fatal e
+      Rails.logger.fatal e
       STDERR.puts e.message
       exit 1
     end

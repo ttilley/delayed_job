@@ -1,7 +1,9 @@
 module Delayed
   class Worker < ActiveRecord::Base
     set_table_name :delayed_workers
-    SLEEP = 5
+
+    @@sleep_delay = 5    
+    cattr_accessor :sleep_delay
 
     cattr_accessor :logger
     self.logger = if defined?(Merb::Logger)
@@ -61,7 +63,7 @@ module Delayed
         break if $exit
 
         if count.zero?
-          sleep(SLEEP)
+          sleep(@@sleep_delay)
         else
           say "#{count} jobs processed at %.4f j/s, %d failed ..." % [count / realtime, result.last]
         end
