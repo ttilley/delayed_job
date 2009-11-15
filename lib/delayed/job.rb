@@ -31,6 +31,10 @@ module Delayed
     cattr_accessor :min_priority, :max_priority
     self.min_priority = nil
     self.max_priority = nil
+    
+    def worker
+      Delayed::Worker.instance
+    end
 
     # When a worker is exiting, make sure we don't have any locked jobs.
     def self.clear_locks!(worker_name)
@@ -93,17 +97,26 @@ module Delayed
 
     # Try to run job. Returns true/false (work done/work failed)
     def run(max_run_time)
+      worker.start_job(self) if worker
+    
       runtime =  Benchmark.realtime do
         Timeout.timeout(max_run_time.to_i) { invoke_job }
         destroy
       end
+    
       # TODO: warn if runtime > max_run_time ?
       logger.info "* [JOB] #{name} completed after %.4f" % runtime
-      return true  # did work
+    
+      worker.end_job(self, runtime) if worker
+    
+      return true
     rescue Exception => e
+      worker.fail_job(self) if worker
+    
       reschedule e.message, e.backtrace
       log_exception(e)
-      return false  # work failed
+    
+      return false
     end
 
     # Add a job to the queue

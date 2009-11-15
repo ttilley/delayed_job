@@ -63,9 +63,8 @@ module Delayed
       Delayed::Worker.logger = Rails.logger
       ActiveRecord::Base.connection.reconnect!
       
-      worker = Delayed::Worker.new(@options)
-      worker.name_prefix = "#{worker_name} "
-      worker.start
+      @options[:name_prefix] = "#{worker_name} "
+      Delayed::Worker.start(@options)
     rescue => e
       Rails.logger.fatal e
       STDERR.puts e.message

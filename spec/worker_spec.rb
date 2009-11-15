@@ -8,19 +8,108 @@ describe Delayed::Worker do
 
   before do
     Delayed::Worker.class_eval('public :work_off')
+    Delayed::Worker.delete_all
   end
 
   before(:each) do
     @worker = Delayed::Worker.new(:max_priority => nil, :min_priority => nil)
+    @worker.save!
 
     Delayed::Job.delete_all
     
     SimpleJob.runs = 0
   end
+  
+  context "starting up" do
+    it "sets the worker instance" do
+      Delayed::Worker.instance.should == @worker
+    end
+    
+    it "sets name" do
+      @worker.name.should == Delayed::Worker.default_name
+    end
+    
+    it "sets created_at" do
+      @worker.created_at.should_not == nil
+    end
+  end
+  
+  context "starting a job" do
+    before(:each) do
+      @worker = Delayed::Worker.new
+      @worker.save!
+      @job = job_create
+      @worker.start_job(@job)
+    end
+    
+    it "sets job_id" do
+      @worker.job_id.should == @job.id
+    end
+    
+    it "sets job_name" do
+      @worker.job_name.should == @job.name
+    end
+    
+    it "sets job_attempt" do
+      @worker.job_attempt.should == @job.attempts
+    end
+    
+    it "sets job_priority" do
+      @worker.job_priority.should == @job.priority
+    end
+    
+    it "sets job_started_at" do
+      @worker.job_started_at.should_not == nil
+    end
+  end
+  
+  context "ending a job" do
+    before(:each) do
+      @worker = Delayed::Worker.create!({})
+      @job = job_create
+      @worker.start_job(@job)
+      @worker.update_attribute :job_started_at, 5.minutes.ago
+      @worker.end_job(@job)
+    end
+    
+    it "increments completed jobs" do
+      @worker.completed_jobs.should == 1
+    end
+    
+    it "records longest running job" do
+      @worker.longest_job.should == 300
+    end
+    
+    it "unsets job_id" do
+      @worker.job_id.should == nil
+    end
+    
+    it "unsets job_name" do
+      @worker.job_name.should == nil
+    end
+    
+    it "unsets job_started_at" do
+      @worker.job_started_at.should == nil
+    end
+  end
+  
+  context "failing a job" do
+    before(:each) do
+      @worker = Delayed::Worker.create!({})
+      @job = job_create
+      @worker.start_job(@job)
+      @worker.fail_job(@job)
+    end
+    
+    it "increments failed jobs" do
+      @worker.failed_jobs.should == 1
+    end
+  end
 
   context "worker prioritization" do
     before(:each) do
       @worker = Delayed::Worker.new(:max_priority => 5, :min_priority => -5)
+      @worker.save!
     end
 
     it "should only work_off jobs that are >= min_priority" do

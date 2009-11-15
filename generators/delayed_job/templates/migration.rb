@@ -11,6 +11,19 @@ class CreateDelayedJobs < ActiveRecord::Migration
       table.string   :locked_by                    # Who is working on this object (if locked)
       table.timestamps
     end
+    
+    create_table :delayed_workers, :force => true do |table|
+      table.string :name
+      table.integer :job_id
+      table.string :job_name
+      table.integer :job_attempt
+      table.integer :job_priority
+      table.integer :completed_jobs, :default => 0
+      table.integer :failed_jobs, :default => 0
+      table.integer :longest_job, :default => 0
+      table.datetime :job_started_at
+      table.timestamps
+    end
 
   end
   
